@@ -99,7 +99,7 @@ def tg_send_photo(photo_path: str, caption: str):
 # TRADINGVIEW SCREENSHOT
 # -----------------------------
 async def get_tv_screenshot(symbol, exchange, interval_str):
-    tv_intervals = {"4H": "240", "1D": "D", "1W": "W"}
+    tv_intervals = {"1H": "60", "4H": "240", "1D": "D", "1W": "W"}
     tv_interval = tv_intervals.get(interval_str, "D")
     
     os.makedirs("screenshots", exist_ok=True)
@@ -214,7 +214,7 @@ async def async_main():
     PERIOD = sys.argv[2].upper()
     MARKET_TYPE = sys.argv[3].lower() if len(sys.argv) > 3 else "bist"
     
-    interval_map = {"4H": Interval.in_4_hour, "1W": Interval.in_weekly, "1D": Interval.in_daily}
+    interval_map = {"1H": Interval.in_1_hour, "4H": Interval.in_4_hour, "1W": Interval.in_weekly, "1D": Interval.in_daily}
     INTERVAL = interval_map.get(PERIOD, Interval.in_daily)
 
     BIST_STOCKS = [
