@@ -1,8 +1,7 @@
-python-telegram-bot==20.8
-requests==2.31.0
-playwright==1.42.0
-pandas==2.2.1
-numpy==1.26.4
-yfinance==0.2.37
-bist-parser==0.1.4
-python-dotenv==1.0.1
+python-telegram-bot
+requests
+playwright
+pandas
+numpy
+yfinance
+python-dotenv
