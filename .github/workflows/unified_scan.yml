@@ -1,0 +1,59 @@
+name: Unified Market Scanner
+on:
+  schedule:
+    # Türkiye saati ile 09:00 - 18:30 arası her 30 dakikada bir (Hafta içi)
+    # UTC karşılığı: 06:00 - 15:30
+    - cron: "0,30 6-15 * * 1-5"
+  workflow_dispatch: # Manuel tetikleme için
+permissions:
+  contents: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+      - name: 📦 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install chromium
+          sudo apt-get install -y libgbm-dev # Playwright için gerekli sistem kütüphanesi
+      - name: 🔍 Run Market Scan (tara.py)
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          TV_USERNAME: ${{ secrets.TV_USERNAME }}
+          TV_PASSWORD: ${{ secrets.TV_PASSWORD }}
+        run: |
+          echo "🚀 TARAMA BAŞLIYOR..."
+          # 1H, 4H, 1D ve 1W periyotları için tarama yap
+          python tara.py tarama 1H bist
+          python tara.py tarama 4H bist
+          python tara.py tarama 1D bist
+          python tara.py tarama 1W bist
+      - name: 🔍 Run Scanner (scanner.py)
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          TV_USERNAME: ${{ secrets.TV_USERNAME }}
+          TV_PASSWORD: ${{ secrets.TV_PASSWORD }}
+        run: |
+          echo "🚀 SCANNER.PY BAŞLIYOR..."
+          python scanner.py
+      - name: 💾 Commit updated state.json
+        run: |
+          if git status --porcelain | grep -q "state.json"; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add state.json
+            git commit -m "Update state [skip ci]"
+            git push
+          else
+            echo "No state changes."
+          fi
