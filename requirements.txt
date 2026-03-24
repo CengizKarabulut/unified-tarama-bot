@@ -3,7 +3,7 @@ requests==2.31.0
 playwright==1.42.0
 pandas==2.2.1
 numpy==1.26.4
-tv-datafeed @ git+https://github.com/ali-raza-tariq/tv-datafeed.git
+tvDatafeed
 yfinance==0.2.37
 bist-parser==0.1.4
 python-dotenv==1.0.1
