@@ -2,19 +2,16 @@ name: Unified Market Scanner
 
 on:
   schedule:
-    # Türkiye saati ile 09:00 - 18:30 arası her 30 dakikada bir (Hafta içi)
-    # UTC karşılığı: 06:00 - 15:30
     - cron: "0,30 6-15 * * 1-5"
-  workflow_dispatch: # Manuel tetikleme butonu
+  workflow_dispatch:
 
 permissions:
-  contents: write # state.json dosyasını güncelleyip push yapabilmesi için şart
+  contents: write
 
 jobs:
   scan:
     runs-on: ubuntu-latest
     
-    # Tüm adımlar için ortak env değişkenleri
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -30,39 +27,39 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: 'pip'
+          # Önemli: BorsaPy'ın temiz kurulması için cache'i kapattık
+          cache: "" 
 
       - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Playwright ve gerekli sistem bağımlılıklarının tam kurulumu
+          # BorsaPy'ı doğrudan git üzerinden zorla kuruyoruz
+          python -m pip install git+https://github.com/saidsurucu/borsapy.git --upgrade
           python -m playwright install chromium
           python -m playwright install-deps chromium 
 
       - name: 🔍 Run Market Scan (tara.py)
         run: |
           echo "🚀 TARA.PY BAŞLIYOR..."
-          # Periyotlar için tarama yap (Hata alsa bile durmaması için '|| true' eklenebilir)
-          python tara.py tarama 1H bist || echo "1H taramasında hata oluştu"
-          python tara.py tarama 4H bist || echo "4H taramasında hata oluştu"
-          python tara.py tarama 1D bist || echo "1D taramasında hata oluştu"
-          python tara.py tarama 1W bist || echo "1W taramasında hata oluştu"
+          python tara.py tarama 1H bist || echo "1H hatası"
+          python tara.py tarama 4H bist || echo "4H hatası"
+          python tara.py tarama 1D bist || echo "1D hatası"
+          python tara.py tarama 1W bist || echo "1W hatası"
 
       - name: 🔍 Run Scanner (scanner.py)
         run: |
           echo "🚀 SCANNER.PY BAŞLIYOR..."
-          python scanner.py || echo "scanner.py çalışırken hata oluştu"
+          python scanner.py || echo "scanner.py hatası"
 
       - name: 💾 Commit updated state.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Sadece değişiklik varsa commit yap
           if git status --porcelain | grep -q "state.json"; then
             git add state.json
             git commit -m "Update state [skip ci]"
             git push
           else
-            echo "Herhangi bir durum değişikliği yok."
+            echo "Değişiklik yok."
           fi
