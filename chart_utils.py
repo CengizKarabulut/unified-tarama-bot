@@ -1,71 +1,83 @@
 import os
-import requests
+import mplfinance as mpf
+import pandas as pd
 import logging
 
 # Loglama ayarları
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Çevresel değişkenlerden al
-# Not: scanner.py veya tara.py içinde os.environ kullanarak bunları set edebilirsin
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-
-# İstekler için bir session oluşturmak performansı artırır
-session = requests.Session()
-
-def send_message(text: str):
+def make_candle_chart(df, out_png: str, title: str):
     """
-    Telegram üzerinden metin mesajı gönderir.
+    Verilen DataFrame'den mum grafiği, MA200, SMI ve MACD içeren profesyonel bir görsel oluşturur.
     """
-    if not BOT_TOKEN or not CHAT_ID:
-        logging.error("❌ Eksik Yapılandırma: TELEGRAM_BOT_TOKEN veya TELEGRAM_CHAT_ID ayarlanmamış!")
-        return False
-        
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True # Link önizlemelerini kapatır, mesaj daha temiz durur
-    }
-    
     try:
-        # timeout=10 ekleyerek botun sonsuza kadar asılı kalmasını önlüyoruz
-        r = session.post(url, data=payload, timeout=10)
-        r.raise_for_status()
-        logging.info("✅ Mesaj başarıyla gönderildi.")
-        return True
-    except Exception as e:
-        logging.error(f"❌ Telegram mesaj gönderme hatası: {e}")
-        return False
+        # 1. Klasör Kontrolü
+        os.makedirs(os.path.dirname(out_png), exist_ok=True)
 
-def send_photo(image_path: str, caption: str = ""):
-    """
-    Telegram üzerinden fotoğraf gönderir.
-    """
-    if not BOT_TOKEN or not CHAT_ID:
-        logging.error("❌ Eksik Yapılandırma: TELEGRAM_BOT_TOKEN veya TELEGRAM_CHAT_ID ayarlanmamış!")
-        return False
+        # 2.mplfinance DatetimeIndex bekler, kontrol et ve düzelt
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.to_datetime(df.index)
+
+        addplots = []
         
-    if not os.path.exists(image_path):
-        logging.error(f"❌ Fotoğraf dosyası bulunamadı: {image_path}")
-        return False
+        # 3. MA200 Plot (Ana Grafik Üzerinde)
+        if 'MA200' in df.columns and not df['MA200'].dropna().empty:
+            addplots.append(mpf.make_addplot(df['MA200'], color='#2962FF', width=1.2))
+
+        # 4. SMI Paneli (Panel 2)
+        if 'SMI' in df.columns and 'SMI_EMA' in df.columns:
+            # SMI verisinin boş olmadığını kontrol et
+            if not df['SMI'].dropna().empty:
+                addplots.append(mpf.make_addplot(df['SMI'], panel=2, color='#00C853', width=1.0, ylabel='SMI'))
+                addplots.append(mpf.make_addplot(df['SMI_EMA'], panel=2, color='#FF5252', width=1.0))
+
+        # 5. MACD Paneli (Panel 3)
+        if 'MACD' in df.columns and 'Signal' in df.columns:
+            if not df['MACD'].dropna().empty:
+                addplots.append(mpf.make_addplot(df['MACD'], panel=3, color='#2196F3', width=1.0, ylabel='MACD'))
+                addplots.append(mpf.make_addplot(df['Signal'], panel=3, color='#FF9800', width=1.0))
+                if 'Hist' in df.columns:
+                    # Histogram renklerini (Pozitif/Negatif) ayarla
+                    colors = ['#26a69a' if x >= 0 else '#ef5350' for x in df['Hist']]
+                    addplots.append(mpf.make_addplot(df['Hist'], panel=3, type='bar', color=colors, alpha=0.7))
+
+        # 6. Panel Oranlarını Hesapla
+        # Mum Grafiği (0), Hacim (1), SMI (2), MACD (3)
+        num_panels = 2 # Varsayılan: Grafik + Hacim
+        if 'SMI' in df.columns: num_panels += 1
+        if 'MACD' in df.columns: num_panels += 1
+
+        ratios = [4, 1] # Ana Grafik, Hacim
+        if 'SMI' in df.columns: ratios.append(1.5)
+        if 'MACD' in df.columns: ratios.append(1.5)
+
+        # 7. Görsel Stil Ayarları (Modern ve Karanlık Tema Seçeneği)
+        custom_style = mpf.make_mpf_style(
+            base_mpf_style='charles', 
+            gridcolor='#e0e0e0',
+            facecolor='white',
+            edgecolor='black',
+            rc={'font.size': 8}
+        )
+
+        # 8. Grafiği Çiz ve Kaydet
+        mpf.plot(
+            df,
+            type="candle",
+            volume=True,
+            title=f"\n{title}",
+            style=custom_style,
+            savefig=dict(fname=out_png, dpi=150, bbox_inches='tight'),
+            addplot=addplots,
+            panel_ratios=ratios,
+            tight_layout=True,
+            datetime_format='%d/%m', # Eksen tarih formatı
+            xrotation=0
+        )
         
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-    data = {
-        "chat_id": CHAT_ID, 
-        "caption": caption, 
-        "parse_mode": "HTML"
-    }
-    
-    try:
-        with open(image_path, "rb") as f:
-            files = {"photo": f}
-            # Fotoğraf yükleme bazen uzun sürebilir, timeout=30 idealdir
-            r = session.post(url, data=data, files=files, timeout=30)
-        r.raise_for_status()
-        logging.info(f"✅ Fotoğraf başarıyla gönderildi: {image_path}")
+        logging.info(f"✅ Grafik başarıyla oluşturuldu: {out_png}")
         return True
+
     except Exception as e:
-        logging.error(f"❌ Telegram fotoğraf gönderme hatası: {e}")
+        logging.error(f"❌ Grafik oluşturma hatası: {e}")
         return False
