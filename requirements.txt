@@ -5,6 +5,5 @@ pandas
 numpy
 yfinance
 python-dotenv
-tvdatafeed
-borsapy
 mplfinance
+tradingview-ta
