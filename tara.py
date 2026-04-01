@@ -20,8 +20,8 @@ STATE_FILE = "state.json"
 # -----------------------------
 # TELEGRAM
 # -----------------------------
-TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
-TG_CHAT_ID = os.getenv("TG_CHAT_ID")
+TG_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TG_BOT_TOKEN")
+TG_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID") or os.getenv("TG_CHAT_ID")
 
 # -----------------------------
 # TRADINGVIEW
@@ -145,7 +145,9 @@ async def get_tv_screenshot(symbol, exchange, interval_str):
 # CALCULATIONS
 # -----------------------------
 def make_tv():
-    return TvDatafeed(username=TV_USERNAME, password=TV_PASSWORD) if TV_USERNAME and TV_PASSWORD else TvDatafeed()
+    if TV_USERNAME and TV_PASSWORD:
+        return TvDatafeed(username=TV_USERNAME, password=TV_PASSWORD)
+    return TvDatafeed()
 
 tv = make_tv()
 

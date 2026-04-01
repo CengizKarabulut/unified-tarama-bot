@@ -5,3 +5,6 @@ pandas
 numpy
 yfinance
 python-dotenv
+tvDatafeed @ git+https://github.com/ali-raza-786/tvdatafeed.git
+borsapy
+mplfinance

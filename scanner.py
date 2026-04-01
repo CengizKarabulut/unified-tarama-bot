@@ -21,8 +21,8 @@ TICKERS_FILE = "tickers.txt"
 # -----------------------------
 # TELEGRAM
 # -----------------------------
-TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
-TG_CHAT_ID = os.getenv("TG_CHAT_ID")
+TG_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TG_BOT_TOKEN")
+TG_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID") or os.getenv("TG_CHAT_ID")
 
 # -----------------------------
 # TRADINGVIEW LOGIN
