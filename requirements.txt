@@ -7,3 +7,4 @@ yfinance
 python-dotenv
 mplfinance
 tradingview-ta
+borsapy @ git+https://github.com/saidsurucu/borsapy.git
