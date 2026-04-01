@@ -5,11 +5,10 @@ from datetime import datetime, timezone, timedelta
 import requests
 import pandas as pd
 import numpy as np
+import yfinance as yf
 from playwright.async_api import async_playwright
 import logging
 import sys
-import yfinance as yf
-from tradingview_ta import TA_Handler, Interval
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -115,20 +114,33 @@ def process_symbol(sym, exchange, interval_yf, period_str):
     try:
         ticker_sym = f"{sym}.IS" if exchange == "BIST" else sym
         df = yf.download(ticker_sym, period="2y", interval=interval_yf, progress=False)
-        if df is None or df.empty or len(df) < 50: return None
+        
+        if df is None or df.empty: return None
+
+        # --- MULTIINDEX FIX ---
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        # ----------------------
+
+        if len(df) < 50: return None
 
         smi, smi_ema = calc_smi(df)
         macd = ema(df["Close"], 12) - ema(df["Close"], 26)
         signal = ema(macd, 9)
         hist = macd - signal
 
-        last_close = float(df["Close"].iloc[-1])
-        prev_close = float(df["Close"].iloc[-2])
+        # --- SERIES TO FLOAT FIX ---
+        last_close = float(df["Close"].values[-1])
+        prev_close = float(df["Close"].values[-2])
         change = ((last_close - prev_close) / prev_close) * 100
         
-        last_smi, prev_smi = float(smi.iloc[-1]), float(smi.iloc[-2])
-        last_smi_ema, prev_smi_ema = float(smi_ema.iloc[-1]), float(smi_ema.iloc[-2])
-        last_hist, prev_hist = float(hist.iloc[-1]), float(hist.iloc[-2])
+        last_smi = float(smi.values[-1])
+        prev_smi = float(smi.values[-2])
+        last_smi_ema = float(smi_ema.values[-1])
+        prev_smi_ema = float(smi_ema.values[-2])
+        last_hist = float(hist.values[-1])
+        prev_hist = float(hist.values[-2])
+        # ---------------------------
         
         cross_up = prev_smi <= prev_smi_ema and last_smi > last_smi_ema
         smi_neg = last_smi < 0
@@ -137,7 +149,8 @@ def process_symbol(sym, exchange, interval_yf, period_str):
         
         smi_macd_buy = cross_up and smi_neg and (hist_neg or hist_up)
         
-        ma200 = df["Close"].rolling(200).mean().iloc[-1] if len(df) >= 200 else 0
+        ma200_series = df["Close"].rolling(200).mean()
+        ma200 = float(ma200_series.values[-1]) if len(df) >= 200 else 0
         above_ma200 = last_close > ma200
         
         full_buy = smi_macd_buy and above_ma200
